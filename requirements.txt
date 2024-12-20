@@ -3,3 +3,5 @@ pandas
 transformers
 faiss-cpu
 sentence_transformers
+flask
+flask_cors
