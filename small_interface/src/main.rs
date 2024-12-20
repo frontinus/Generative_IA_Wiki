@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use yew::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
-
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct QueryRequest {
@@ -32,22 +33,24 @@ fn app() -> Html {
         })
     };
 
-    // Updated to use SubmitEvent instead of FocusEvent
     let on_submit = {
         let query = query.clone();
-        let answer = answer.clone();
-        let is_loading = is_loading.clone();
+        let answer = Rc::new(RefCell::new(answer.clone()));
+        let is_loading = Rc::new(RefCell::new(is_loading.clone()));
 
         Callback::from(move |e: SubmitEvent| {
-            e.prevent_default();  // Prevent the default form submission behavior
+            e.prevent_default(); 
             let query_value = (*query).clone();
             if query_value.is_empty() {
-                answer.set("Please enter a query.".to_string());
+                answer.borrow().set("Please enter a query.".to_string());
                 return;
             }
 
-            is_loading.set(true);
+            is_loading.borrow().set(true);
             let client = Client::new();
+            let answer = answer.clone();
+            let is_loading = is_loading.clone();
+
             spawn_local(async move {
                 let payload = QueryRequest {
                     query: query_value.clone(),
@@ -56,22 +59,22 @@ fn app() -> Html {
 
                 let response = client
                     .post("http://127.0.0.1:8000/generate/")
-                    .json(&payload)  // Ensure that .json() works here
+                    .json(&payload)
                     .send()
                     .await;
 
                 match response {
                     Ok(res) => {
                         if let Ok(api_response) = res.json::<ApiResponse>().await {
-                            answer.set(api_response.answer);
+                            answer.borrow().set(api_response.answer);
                         } else {
-                            answer.set("Failed to parse response.".to_string());
+                            answer.borrow().set("Failed to parse response.".to_string());
                         }
                     }
-                    Err(_) => answer.set("Error connecting to the API.".to_string()),
+                    Err(_) => answer.borrow().set("Error connecting to the API.".to_string()),
                 }
 
-                is_loading.set(false);
+                is_loading.borrow().set(false);
             });
         })
     };
@@ -104,7 +107,6 @@ fn app() -> Html {
         </div>
     }
 }
-
 
 fn main() {
     yew::Renderer::<App>::new().render();
