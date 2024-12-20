@@ -101,7 +101,7 @@ fn app() -> Html {
                 { if *is_loading {
                     html! { <p>{ "Loading..." }</p> }
                 } else {
-                    html! { <p>{ (*answer).clone() }</p> }
+                    html! { <div style="white-space: pre-wrap;">{ (*answer).clone() }</div> }
                 }}
             </div>
         </div>
