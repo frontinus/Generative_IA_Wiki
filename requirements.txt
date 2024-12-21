@@ -6,3 +6,4 @@ sentence_transformers
 flask
 flask_cors
 ollama
+openai
