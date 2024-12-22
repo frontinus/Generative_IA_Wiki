@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from pipeline import rag
+from pipeline import rag, rag_openai
 
 app = Flask(__name__)
 CORS(app)
@@ -8,10 +8,14 @@ CORS(app)
 # Simple health check route
 @app.route('/generate/', methods=['POST'])
 def health():
-    print("yolo")
+
     data = request.get_json()
     prompt = data["query"]
-    res = rag(prompt)
+    use_openai = data.get("use_openai", False)
+    if use_openai:
+        res = rag_openai(prompt)
+    else:
+        res = rag(prompt)
     print(res)
     return jsonify({"answer":res,"query":prompt}), 200
 

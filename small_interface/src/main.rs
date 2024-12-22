@@ -10,6 +10,7 @@ use std::cell::RefCell;
 struct QueryRequest {
     query: String,
     top_k: u32,
+    use_openai: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -25,6 +26,17 @@ fn app() -> Html {
     let is_loading = use_state(|| false);
     let show_about = use_state(|| false);
     let show_contacts = use_state(|| false);
+    let use_openai = use_state(|| Rc::new(false));
+
+    let toggle_backend = {
+        let use_openai = use_openai.clone();
+        Callback::from(move |e: Event| {
+            if let Some(input) = e.target_dyn_into::<HtmlInputElement>() {
+                let new_state  = Rc::new(input.checked());
+                use_openai.set(new_state);
+            }
+        })
+    };
 
     let on_input = {
         let query = query.clone();
@@ -37,8 +49,12 @@ fn app() -> Html {
 
     let on_submit = {
         let query = query.clone();
+        let use_openai = use_openai.clone();
         let answer = Rc::new(RefCell::new(answer.clone()));
         let is_loading = Rc::new(RefCell::new(is_loading.clone()));
+        
+
+        
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default(); 
@@ -52,11 +68,13 @@ fn app() -> Html {
             let client = Client::new();
             let answer = answer.clone();
             let is_loading = is_loading.clone();
+            let use_openai = Rc::clone(&use_openai);
 
             spawn_local(async move {
                 let payload = QueryRequest {
                     query: query_value.clone(),
                     top_k: 5,
+                    use_openai:*use_openai,
                 };
 
                 let response = client
@@ -98,6 +116,17 @@ fn app() -> Html {
     html! {
         <div style="font-family: Arial, sans-serif; padding: 2rem;">
             <h1>{ "RAG Front-End in Rust" }</h1>
+            <div>
+                <input
+                    type="checkbox"
+                    id="backend-toggle"
+                    name="backend-toggle"
+                    onchange={toggle_backend}
+                />
+                <label for="backend-toggle" style="margin-left: 0.5rem;">
+                    { if **use_openai { "OpenAI backend selected." } else { "Local AI backend selected." } }
+                </label>
+            </div>
             <form onsubmit={on_submit}>
                 <label for="query">{ "Enter your query:" }</label>
                 <input
