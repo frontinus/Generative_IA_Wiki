@@ -1,0 +1,127 @@
+// Variables
+$primary-color: #1abc9c;
+$secondary-color: #3498db;
+$background-color: #1b1b1b;
+$text-color: whitesmoke;
+$highlight-text-color: #ff6347; // New color for grey text (Tomato red)
+$button-bg: #2c3e50;
+$button-hover-bg: $primary-color;
+$button-text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.5); // Text shadow for button text
+$input-border-color: #d7dcdf;
+$container-bg: #fff;
+$answer-text-color: $highlight-text-color;
+
+// Base Styles
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: "Roboto", sans-serif;
+    background: $background-color;
+    color: $text-color;
+    height: 100%;
+}
+
+h1 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: $secondary-color;
+}
+
+// Container
+.container {
+    padding: 2rem;
+    max-width: 800px;
+    margin: 2rem auto;
+    background-color: $container-bg;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+// Form Styles
+form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    label {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+        color: $highlight-text-color; // Updated color for label text
+    }
+
+    input[type="text"] {
+        width: 100%;
+        padding: 0.5rem;
+        font-size: 1rem;
+        border: 1px solid $input-border-color;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+
+    button {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        font-weight: bold;
+        color: $text-color;
+        background: linear-gradient(145deg, $button-bg, darken($button-bg, 10%)); // Gradient effect
+        border: none;
+        border-radius: 25px; // Pill shape
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-shadow: $button-text-shadow;
+
+        &:hover {
+            background: linear-gradient(145deg, lighten($button-hover-bg, 10%), $button-hover-bg);
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3); // Elevation on hover
+        }
+
+        &:active {
+            transform: scale(0.95);
+        }
+    }
+}
+
+// Answer Section
+.answer {
+    margin-top: 2rem;
+    font-size: 1.2rem;
+    color: $answer-text-color;
+
+    strong {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+
+    p {
+        white-space: pre-wrap;
+    }
+}
+
+// About and Contacts Sections
+.about, .contacts {
+    margin-top: 2rem;
+    padding: 1rem;
+    background-color: rgba($secondary-color, 0.1);
+    border-radius: 8px;
+
+    h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: $highlight-text-color; // Updated color for section titles
+    }
+
+    p {
+        margin-bottom: 0.5rem;
+
+        a {
+            color: $secondary-color;
+            text-decoration: none;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+    }
+}

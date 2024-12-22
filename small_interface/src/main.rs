@@ -106,13 +106,12 @@ fn app() -> Html {
                     name="query"
                     value={(*query).clone()}
                     oninput={on_input}
-                    style="margin-left: 1rem; padding: 0.5rem;"
                 />
-                <button type="submit" style="margin-left: 1rem; padding: 0.5rem;">
+                <button type="submit">
                     { "Submit" }
                 </button>
             </form>
-            <div style="margin-top: 2rem; font-size: 1.2rem;">
+            <div class="answer">
                 <strong>{ "Answer:" }</strong>
                 { if *is_loading {
                     html! { <p>{ "Loading..." }</p> }
@@ -120,12 +119,12 @@ fn app() -> Html {
                     html! { <div style="white-space: pre-wrap;">{ (*answer).clone() }</div> }
                 }}
             </div>
-            <button onclick={on_about_click} style="margin-top: 2rem; padding: 0.5rem;">
+            <button onclick={on_about_click} >
                 { "About" }
             </button>
             { if *show_about {
                 html! {
-                    <div style="margin-top: 1rem; font-size: 1.2rem;">
+                    <div class="about">
                         <h2>{ "About" }</h2>
                         <p>{ "This is a simple front-end for the RAG API written in Rust using Yew." }</p>
                         <p>{ "The RAG API is a Retrieval-Augmented Generation model that can be used to generate answers to queries." }</p>
@@ -137,18 +136,18 @@ fn app() -> Html {
             } else {
                 html! {}
             }}
-            <button onclick={on_contacts_click} style="margin-top: 2rem; padding: 0.5rem;">
+            <button onclick={on_contacts_click} >
                 { "Contacts" }
             </button>
             { if *show_contacts {
                 html! {
-                    <div style="margin-top: 1rem; font-size: 1.2rem;">
+                    <div class="contacts">
                         <h2>{ "Contacts" }</h2>
                         <p>{ "Keep in touch with us:" }</p>
                         <p>{ "Francesco's GitHub: " }<a href="https://github.com/frontinus" target="_blank">{ "Francesco's GitHub" }</a></p>
                         <p>{ "Thomas' GitHub: " }<a href="https://github.com/thetom061" target="_blank">{ "Thomas' GitHub" }</a></p>
                         <p>{ "Francesco's LinkedIn: " }<a href="https://linkedin.com/in/francesco-abate-79601719b" target="_blank">{ "Francesco's LinkedIn" }</a></p>
-                        <p>{ "Thomas' LinkedIn: " }<a href="https://www.linkedin.com/in/thomas-cotte-9870531a1/" target="_blank">{ "Thomas' LinkedIn" }</a></p><p>{ "Francesco Abate" }</p>
+                        <p>{ "Thomas' LinkedIn: " }<a href="https://www.linkedin.com/in/thomas-cotte-9870531a1/" target="_blank">{ "Thomas' LinkedIn" }</a></p>
                         </div>
                 }
             } else {
