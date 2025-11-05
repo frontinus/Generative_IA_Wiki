@@ -1,21 +1,168 @@
+# 🔍 RAG Historical Events Explorer
 
-Setup Script - installs python requirements + gathers data for the project
+This is a Retrieval-Augmented Generation (RAG) system built to answer questions about 20th-century historical events. It features a sleek, responsive frontend built in Rust (Yew/WebAssembly) and a powerful backend built in Python (Flask).
 
+The system retrieves relevant documents from a FAISS vector index (created from DBpedia data) and uses them as context for a Large Language Model (either local Ollama or OpenAI) to generate an accurate, grounded answer.
 
-Model uses Ollama on a small wikipedia dump from the 20th century.
+## ✨ Features
 
+- Dual Backend Support: Seamlessly toggle between a local Ollama model (phi3:mini) or the remote OpenAI API (gpt-4-turbo).
 
-It is built with a rust interface and flask backend with python
+- Adjustable Context: Use a slider to control the number of retrieved documents (top_k) to be fed to the model.
 
-How to use:
+- Semantic Search: Uses sentence-transformers and FAISS to perform fast, accurate semantic search over the historical event database.
 
-1)run ollama fron cli
+- Rich Data Source: The knowledge base is built from 20th-century historical events pulled from DBpedia using SPARQL.
 
-2)run app.py from cli
+- Modern Rust Frontend: A fast, fully client-side application built with Yew, which compiles to WebAssembly.
 
-3) run rust interface by doing
-3) a) cd small_interface
-3) b) trunk serve
-3) c) open http://127.0.0.1:8080/ in your navigator
+## 🛠️ Tech Stack
 
-4) write a prompt and send it, then wait for an answer
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| **Frontend** | [Rust](https://www.rust-lang.org/) + [Yew](https://yew.rs/) | A modern framework for building multi-threaded client-side web apps with WebAssembly. |
+| **Frontend** | [Trunk](https://trunkrs.dev/) | Build tool for Yew applications. |
+| **Frontend** | [SASS/SCSS](https://sass-lang.com/) | For advanced and clean styling. |
+| **Backend** | [Python](https://www.python.org/) + [Flask](https://flask.palletsprojects.com/) | A lightweight web server to host the RAG API. |
+| **RAG Pipeline** | [Ollama (`phi3:mini`)](https://ollama.com/) | The default, local LLM for generation. |
+| **RAG Pipeline** | [OpenAI (`gpt-4-turbo`)](https://openai.com/) | The optional, high-performance LLM. |
+| **RAG Pipeline** | [FAISS](https://faiss.ai/) | A library for efficient similarity search in vector databases. |
+| **RAG Pipeline** | [`sentence-transformers`](https://sbert.net/) | For generating high-quality text embeddings (`all-MiniLM-L6-v2`). |
+
+## 🚀 Setup and Installation
+
+Follow these steps to get the complete application running on your local machine.
+
+### 1. Prerequisites
+
+Before you begin, ensure you have the following tools installed:
+
+- Python 3.10+
+
+- Rust & Cargo
+
+- Trunk: The build tool for Yew. Install it via Cargo:
+
+```Bash
+    cargo install trunk
+```
+
+- Ollama: Download and install the desktop application.
+
+### 2. Backend Setup
+
+This will set up the Python server, download the ML models, and gather the data.
+
+#### 1.Clone the repository (if you haven't):
+
+```Bash
+git clone <your-repo-url>
+cd <project-root>
+```
+
+#### 2.Create a virtual environment and install dependencies:
+
+```Bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+#### 3.Download the Ollama LLM: Pull the phi3:mini model that the pipeline uses by default.
+
+```Bash
+ollama pull phi3:mini
+```
+
+#### 4.Gather Data from DBpedia:
+
+Run the data gathering script. This will create the historical_events_with_abstracts.csv file.
+
+```Bash
+python data_gathering.py
+```
+
+#### 5.(Optional) Set OpenAI API Key:
+
+If you want to use the OpenAI toggle, set your API key as an environment variable.
+
+```Bash
+export OPENAI_API_KEY="sk-YourActualApiKeyHere"
+```
+
+### 3. Frontend Setup
+
+The frontend is in a separate directory (small_interface) and requires no additional setup, as trunk will handle all dependencies.
+
+## ▶️ How to Run
+
+You will need three separate terminals running at the same time.
+
+### Terminal 1: Run Ollama
+
+Ensure the Ollama Desktop application is running. Alternatively, you can run the service from your terminal:
+
+```Bash
+ollama serve
+```
+
+### Terminal 2: Run the Flask Backend (API)
+
+This terminal runs the Python server, which will load the FAISS index into memory and serve the RAG API.
+
+```Bash
+# Navigate to the project root
+cd <project-root>
+
+# Activate your virtual environment
+source venv/bin/activate
+
+# Run the app
+python app.py
+```
+
+Your backend is now running at http://127.0.0.1:8000.
+
+### Terminal 3: Run the Yew Frontend (UI)
+
+This terminal builds and serves the Rust-based user interface.
+
+```Bash
+# Navigate to the frontend directory
+cd small_interface
+
+# Serve the app. Trunk will compile and open your browser.
+trunk serve --open
+```
+
+Your frontend is now running at http://127.0.0.1:8080/. You can now interact with the application!
+
+## 📁 Project Structure
+
+```markdown
+.
+├── app.py                  # Flask backend server
+├── pipeline.py             # RAG logic (FAISS, Ollama, OpenAI)
+├── data_gathering.py       # SPARQL script to get data from DBpedia
+├── requirements.txt        # (Assumed) Python dependencies
+├── historical_events_with_abstracts.csv  # (Generated by data_gathering.py)
+│
+├── small_interface/        # Yew frontend folder
+│   ├── src/
+│   │   └── main.rs         # Yew app logic
+│   ├── index.html          # Entrypoint for frontend
+│   └── styles.scss         # App styling
+│
+└── README.md               # This file
+```
+
+## 👨‍💻 Authors
+
+This project was built by:
+
+* **Francesco**
+  * [GitHub](https://github.com/frontinus)
+  * [LinkedIn](https://linkedin.com/in/francesco-abate-79601719b)
+* **Thomas**
+  * [GitHub](https://github.com/thetom061)
+  * [LinkedIn](https://www.linkedin.com/in/thomas-cotte-9870531a1/)
