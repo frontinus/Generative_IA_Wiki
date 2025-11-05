@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from pipeline import rag
 import logging
+import re
 from datetime import datetime, timezone
 from functools import wraps
 import traceback
@@ -135,6 +136,30 @@ def validate_top_k(top_k: Any) -> Tuple[bool, str, int]:
     return True, "", k
 
 
+def clean_html_response(html_string: str) -> str:
+    """
+    Clean HTML response from LLM by removing markdown code blocks and prefixes.
+    
+    Args:
+        html_string: Raw HTML string from LLM
+    
+    Returns:
+        Cleaned HTML string
+    """
+    # Remove markdown code blocks (```html ... ``` or ```...```)
+    html_string = re.sub(r'^```html\s*\n?', '', html_string, flags=re.IGNORECASE)
+    html_string = re.sub(r'^```\s*\n?', '', html_string)
+    html_string = re.sub(r'\n?```$', '', html_string)
+    
+    # Remove standalone "html" at the start (case insensitive)
+    html_string = re.sub(r'^\s*[`\'"]?html[`\'"]?\s*\n?', '', html_string, flags=re.IGNORECASE)
+    
+    # Remove any leading/trailing whitespace
+    html_string = html_string.strip()
+    
+    return html_string
+
+
 def create_success_response(data: Dict[str, Any], status_code: int = 200) -> Tuple[Dict, int]:
     """Create standardized success response."""
     response = {
@@ -218,6 +243,9 @@ def generate():
         
         # Call RAG pipeline
         answer = rag(query, use_openai=use_openai, k=top_k)
+        
+        # Clean the answer - remove markdown code blocks and "html" prefix
+        answer = clean_html_response(answer)
         
         # Return success response
         return create_success_response({

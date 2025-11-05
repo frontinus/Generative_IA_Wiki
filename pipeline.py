@@ -122,14 +122,28 @@ def generate_answer(prompt: str, retrieved_docs: pd.DataFrame, use_openai: bool 
         RuntimeError: If model fails to generate response
     """
     global client
-
     context = format_retrieved_documents(retrieved_docs)
     
     system_prompt = """
 You are a highly knowledgeable assistant that answers questions based only on the provided context.
 Do not introduce external information or speculate. Use the context strictly to construct your response.
 If the context is insufficient to answer, respond by stating that explicitly.
-Format your answers in HTML when responding to the user so that it is the child of a <div>.
+
+CRITICAL FORMATTING RULES:
+- Return ONLY raw HTML content
+- Do NOT use markdown code blocks (```)
+- Do NOT prefix with "html" or any other text
+- Do NOT wrap in backticks
+- Start directly with HTML tags like <p>, <div>, <ul>, etc.
+- Format your answer as clean HTML that can be directly inserted into a <div> element
+
+Example of correct response:
+<p>World War II ended on September 2, 1945.</p>
+
+Example of INCORRECT response (DO NOT DO THIS):
+```html
+<p>World War II ended on September 2, 1945.</p>
+```
 """
 
     user_message = f"""
@@ -139,8 +153,9 @@ Format your answers in HTML when responding to the user so that it is the child 
 ### Question:
 {prompt}
 
-### Answer:
-Please format your response in HTML that could be the child of a <div>.
+### Instructions:
+Answer the question based on the context provided. Return your response as raw HTML content only.
+Remember: No markdown, no code blocks, no prefix text - just pure HTML starting with a tag.
 """
 
     try:
@@ -154,6 +169,7 @@ Please format your response in HTML that could be the child of a <div>.
                 
                 logger.info("Initializing OpenAI client...")
                 client = OpenAI(api_key=api_key)
+            
             logger.info("Generating answer with OpenAI GPT-4...")
             response = client.chat.completions.create(
                 model="gpt-4-turbo",
