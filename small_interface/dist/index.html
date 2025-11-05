@@ -2,11 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>RAG Frontend</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="RAG Historical Events Explorer - Ask questions about 20th century history">
+    <title>RAG Historical Events Explorer</title>
     
-<script type="module" nonce="KAAdaYfnmvvUzwLQ4TfWDQ==">
-import init, * as bindings from '/small_interface-e92e74fa8d641754.js';
-const wasm = await init({ module_or_path: '/small_interface-e92e74fa8d641754_bg.wasm' });
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Trunk links (for WebAssembly and styles) -->
+    
+<script type="module">
+import init, * as bindings from '/small_interface-23948c67eb81934e.js';
+const wasm = await init({ module_or_path: '/small_interface-23948c67eb81934e_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -15,10 +26,16 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
-    <link rel="stylesheet" href="/styles-ca53e21216a0f85e.css" integrity="sha384&#x2D;6wTWU&#x2B;E5Bj3auyNw7VssTBL7aMRB2&#x2B;pYbtMf&#x2B;KTWswV75jFPU8toNFCSPFzqJMva"/>
-    
-<link rel="modulepreload" href="/small_interface-e92e74fa8d641754.js" crossorigin=anonymous integrity="sha384-aOoVJi+T8IvBp/L4jVi0a5hUMXYDqnl2r1AXmUNKy6cFk3I5vJlBHk9hc4W3R+5Z"><link rel="preload" href="/small_interface-e92e74fa8d641754_bg.wasm" crossorigin=anonymous integrity="sha384-rfqpqjZILXhN0U3xRJSjsp8nzoS+FmZTDG0KttQdqpxDcUXT/fdYYrLGH31cT0Pc" as="fetch" type="application/wasm"></head>    
-<body><script>"use strict";
+    <link rel="stylesheet" href="/styles-314c1b477b4e77f7.css" integrity="sha384-7K/hpuO3nKRMwNhKZXv3OASXWmpQy8VAg9ugf55hsW5GhthuJ2xejtp55NDDekrY"/>
+<link rel="modulepreload" href="/small_interface-23948c67eb81934e.js" crossorigin="anonymous" integrity="sha384-6yAwnZKHZ562pPgAmDYbpAoMWZzyNUIl7Kz6wWxXU9RwkpvRm4nE+h0puSlqYF2t"><link rel="preload" href="/small_interface-23948c67eb81934e_bg.wasm" crossorigin="anonymous" integrity="sha384-sW8IOCBnO55m8lCA+6st1oRgmMMLXtK+NhiBf+lSl5hiNq/6HQH2s1Nzc1qjxNrf" as="fetch" type="application/wasm"></head>    
+<body>
+    <noscript>
+        <div style="padding: 2rem; text-align: center; font-family: sans-serif;">
+            <h1>⚠️ JavaScript Required</h1>
+            <p>This application requires JavaScript to run. Please enable JavaScript in your browser.</p>
+        </div>
+    </noscript>
+<script>"use strict";
 
 (function () {
 
@@ -110,7 +127,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
                         break;
                 }
             };
-            ws.onclose = this.onclose;
+            ws.onclose = () => this.onclose();
         }
 
         onclose() {
@@ -122,7 +139,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
                     // rebuilt on restart)
                     const ws = new WebSocket(this.url);
                     ws.onopen = () => window.location.reload();
-                    ws.onclose = this.onclose;
+                    ws.onclose = () => this.onclose();
                 },
                 this.poll_interval);
         }
@@ -149,4 +166,3 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 })()
 </script></body>
 </html>
-

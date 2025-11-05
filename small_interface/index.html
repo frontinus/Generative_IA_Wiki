@@ -2,11 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>RAG Frontend</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="RAG Historical Events Explorer - Ask questions about 20th century history">
+    <title>RAG Historical Events Explorer</title>
+    
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Trunk links (for WebAssembly and styles) -->
     <link data-trunk rel="rust" />
     <link data-trunk rel="sass" href="styles.scss">
-    
 </head>    
-<body></body>
+<body>
+    <noscript>
+        <div style="padding: 2rem; text-align: center; font-family: sans-serif;">
+            <h1>⚠️ JavaScript Required</h1>
+            <p>This application requires JavaScript to run. Please enable JavaScript in your browser.</p>
+        </div>
+    </noscript>
+</body>
 </html>
-
