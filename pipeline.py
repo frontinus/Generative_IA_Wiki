@@ -8,6 +8,10 @@ import os
 from openai import OpenAI
 import logging
 from typing import Optional
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -17,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
-client = None#OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ===== LOAD MODEL AND DATA AT MODULE LEVEL =====
 logger.info("Loading sentence transformer model...")

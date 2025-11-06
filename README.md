@@ -56,8 +56,8 @@ This will set up the Python server, download the ML models, and gather the data.
 #### 1.Clone the repository (if you haven't):
 
 ```Bash
-git clone <your-repo-url>
-cd <project-root>
+git clone https://github.com/frontinus/Generative_IA_Wiki.git
+cd Generative_IA_Wiki
 ```
 
 #### 2.Create a virtual environment and install dependencies:
@@ -112,7 +112,7 @@ This terminal runs the Python server, which will load the FAISS index into memor
 
 ```Bash
 # Navigate to the project root
-cd <project-root>
+cd Generative_IA_Wiki
 
 # Activate your virtual environment
 source venv/bin/activate
