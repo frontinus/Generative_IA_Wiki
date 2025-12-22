@@ -1,13 +1,16 @@
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
 import pandas as pd
 from ollama import chat
 from ollama import ChatResponse
 import os
 from openai import OpenAI
 import logging
-from typing import Optional
+from typing import Optional, Tuple, List, Dict, Any
 import os
 from dotenv import load_dotenv
 
@@ -20,50 +23,100 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+class RAGPipeline:
+    def __init__(self, 
+                 data_path: str = "./historical_events_with_abstracts.csv", 
+                 model_name: str = 'all-MiniLM-L6-v2',
+                 index_path: str = "faiss_index.bin"):
+        """
+        Initialize the RAG Pipeline.
+        
+        Args:
+            data_path: Path to the CSV data file.
+            model_name: Name of the sentence-transformer model.
+            index_path: Path to save/load the FAISS index.
+        """
+        self.data_path = data_path
+        self.model_name = model_name
+        self.index_path = index_path
+        
+        self.model = None
+        self.df = None
+        self.index = None
+        self.openai_client = None
+        
+        # Lazy load resources
+        self._load_resources()
 
-# ===== LOAD MODEL AND DATA AT MODULE LEVEL =====
-logger.info("Loading sentence transformer model...")
-MODEL = SentenceTransformer('all-MiniLM-L6-v2')
+    def _load_resources(self):
+        """Load model, data, and index."""
+        try:
+            logger.info("Loading sentence transformer model...")
+            self.model = SentenceTransformer(self.model_name)
+            
+            logger.info("Loading historical events data...")
+            if not os.path.exists(self.data_path):
+                raise FileNotFoundError(f"Data file not found at {self.data_path}")
+            
+            self.df = pd.read_csv(self.data_path)
+            
+            # Combine label + abstract for richer embeddings if not already present
+            if 'combined_text' not in self.df.columns:
+                logger.info("Creating combined text embeddings...")
+                self.df['combined_text'] = self.df['label'] + " " + self.df['abstract']
+            
+            # Load or build index
+            if os.path.exists(self.index_path):
+                logger.info(f"Loading FAISS index from {self.index_path}...")
+                self.index = faiss.read_index(self.index_path)
+            else:
+                logger.info("Building FAISS index...")
+                self._build_index()
+                
+            logger.info(f"✓ Pipeline ready. Loaded {len(self.df)} events.")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize RAG Pipeline: {e}")
+            raise
 
-logger.info("Loading historical events data...")
-DF = pd.read_csv("./historical_events_with_abstracts.csv")
+    def _build_index(self):
+        """Build FAISS index from data."""
+        if self.model is None or self.df is None:
+            raise RuntimeError("Model or Data not loaded")
+            
+        # Encode and convert to float32 (required by FAISS)
+        event_embeddings = self.model.encode(self.df['combined_text'].tolist(), show_progress_bar=True)
+        event_embeddings = np.array(event_embeddings, dtype='float32')
+        
+        # Verify dtype
+        if event_embeddings.dtype != np.float32:
+            event_embeddings = event_embeddings.astype(np.float32)
+        
+        # Build FAISS index
+        self.index = faiss.IndexFlatL2(event_embeddings.shape[1])
+        self.index.add(event_embeddings)
+        
+        # Save index
+        try:
+            faiss.write_index(self.index, self.index_path)
+            logger.info(f"✓ FAISS index saved to {self.index_path}")
+        except Exception as e:
+            logger.warning(f"Could not save FAISS index: {e}")
 
-# Combine label + abstract for richer embeddings
-logger.info("Creating combined text embeddings...")
-DF['combined_text'] = DF['label'] + " " + DF['abstract']
+    def _get_openai_client(self) -> OpenAI:
+        """Get or initialize OpenAI client."""
+        if self.openai_client is None:
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("Cannot use OpenAI: OPENAI_API_KEY environment variable is not set.")
+            self.openai_client = OpenAI(api_key=api_key)
+        return self.openai_client
 
-# Encode and convert to float32 (required by FAISS)
-event_embeddings = MODEL.encode(DF['combined_text'].tolist(), show_progress_bar=True)
-EVENT_EMBEDDINGS = np.array(event_embeddings, dtype='float32')
-
-# Verify dtype
-assert EVENT_EMBEDDINGS.dtype == np.float32, "FAISS requires float32 embeddings"
-
-# Build FAISS index
-logger.info("Building FAISS index...")
-INDEX = faiss.IndexFlatL2(EVENT_EMBEDDINGS.shape[1])
-INDEX.add(EVENT_EMBEDDINGS)
-
-logger.info(f"✓ Loaded {len(DF)} events. Index ready with {EVENT_EMBEDDINGS.shape[1]} dimensions.")
-
-
-# ===== HELPER FUNCTIONS =====
-def format_retrieved_documents(events_df: pd.DataFrame) -> str:
-    """
-    Format the retrieved events DataFrame into a string suitable for context.
-    
-    Args:
-        events_df: DataFrame containing retrieved events with columns:
-                   ['event', 'label', 'date', 'abstract']
-    
-    Returns:
-        Formatted string with document information
-    """
-    formatted_documents = "### Retrieved Documents:\n"
-    for idx, row in events_df.iterrows():
-        formatted_documents += f"""
+    def format_retrieved_documents(self, events_df: pd.DataFrame) -> str:
+        """Format retrieved documents for context."""
+        formatted_documents = "### Retrieved Documents:\n"
+        for idx, row in events_df.iterrows():
+            formatted_documents += f"""
 Document {idx + 1}:
 - **Event:** {row['event']}
 - **Label:** {row['label']}
@@ -71,64 +124,33 @@ Document {idx + 1}:
 - **Abstract:** {row['abstract']}
 
 """
-    return formatted_documents
+        return formatted_documents
 
+    def retrieve_events(self, query: str, k: int = 5) -> pd.DataFrame:
+        """Retrieve top-k most relevant events."""
+        if not query or not query.strip():
+            raise ValueError("Query cannot be empty")
+        
+        if k < 1:
+            k = 1
+        if k > len(self.df):
+            k = len(self.df)
+        
+        # Encode query
+        query_embedding = self.model.encode([query])
+        query_embedding = np.array(query_embedding, dtype='float32')
+        
+        # Search FAISS index
+        distances, indices = self.index.search(query_embedding, k=k)
+        
+        logger.info(f"Retrieved {k} documents for query: '{query[:50]}...'")
+        return self.df.iloc[indices[0]]
 
-def retrieve_events(query: str, k: int = 5) -> pd.DataFrame:
-    """
-    Retrieve top-k most relevant events using FAISS similarity search.
-    
-    Args:
-        query: User's search query
-        k: Number of documents to retrieve (default: 5)
-    
-    Returns:
-        DataFrame with top-k most relevant events
-    
-    Raises:
-        ValueError: If query is empty or k is invalid
-    """
-    if not query or not query.strip():
-        raise ValueError("Query cannot be empty")
-    
-    if k < 1 or k > len(DF):
-        raise ValueError(f"k must be between 1 and {len(DF)}")
-    
-    # Encode query and ensure float32 dtype
-    query_embedding = MODEL.encode([query])
-    query_embedding = np.array(query_embedding, dtype='float32')
-    
-    # Verify dtype
-    assert query_embedding.dtype == np.float32, "Query embedding must be float32"
-    
-    # Search FAISS index
-    distances, indices = INDEX.search(query_embedding, k=k)
-    
-    logger.info(f"Retrieved {k} documents for query: '{query[:50]}...'")
-    logger.debug(f"Distances: {distances[0]}")
-    
-    return DF.iloc[indices[0]]
-
-
-def generate_answer(prompt: str, retrieved_docs: pd.DataFrame, use_openai: bool = False) -> str:
-    """
-    Generate answer using either OpenAI or local Ollama model.
-    
-    Args:
-        prompt: User's question
-        retrieved_docs: DataFrame with retrieved context documents
-        use_openai: If True, use OpenAI GPT-4; otherwise use Ollama
-    
-    Returns:
-        HTML-formatted answer string
-    
-    Raises:
-        RuntimeError: If model fails to generate response
-    """
-    global client
-    context = format_retrieved_documents(retrieved_docs)
-    
-    system_prompt = """
+    def generate_answer(self, prompt: str, retrieved_docs: pd.DataFrame, use_openai: bool = False) -> str:
+        """Generate answer using LLM."""
+        context = self.format_retrieved_documents(retrieved_docs)
+        
+        system_prompt = """
 You are a highly knowledgeable assistant that answers questions based only on the provided context.
 Do not introduce external information or speculate. Use the context strictly to construct your response.
 If the context is insufficient to answer, respond by stating that explicitly.
@@ -140,9 +162,10 @@ CRITICAL FORMATTING RULES:
 - Do NOT wrap in backticks
 - Start directly with HTML tags like <p>, <div>, <ul>, etc.
 - Format your answer as clean HTML that can be directly inserted into a <div> element
+- Use <strong> for emphasis where appropriate.
 
 Example of correct response:
-<p>World War II ended on September 2, 1945.</p>
+<p>World War II ended on <strong>September 2, 1945</strong>.</p>
 
 Example of INCORRECT response (DO NOT DO THIS):
 ```html
@@ -150,7 +173,7 @@ Example of INCORRECT response (DO NOT DO THIS):
 ```
 """
 
-    user_message = f"""
+        user_message = f"""
 ### Context:
 {context}
 
@@ -162,143 +185,73 @@ Answer the question based on the context provided. Return your response as raw H
 Remember: No markdown, no code blocks, no prefix text - just pure HTML starting with a tag.
 """
 
-    try:
-        if use_openai:
-            if client is None:
-                api_key = os.getenv("OPENAI_API_KEY")
-                if not api_key:
-                    logger.error("Cannot use OpenAI: OPENAI_API_KEY environment variable is not set.")
-                    # We raise an error here so the user gets a proper 500 response
-                    raise ValueError("Cannot use OpenAI: OPENAI_API_KEY environment variable is not set.")
+        try:
+            if use_openai:
+                client = self._get_openai_client()
+                logger.info("Generating answer with OpenAI GPT-4...")
+                response = client.chat.completions.create(
+                    model="gpt-4-turbo",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    max_tokens=1000,
+                    temperature=0.7
+                )
+                answer = response.choices[0].message.content
+                logger.info("✓ OpenAI response generated successfully")
+                return answer
+            else:
+                logger.info("Generating answer with Ollama (phi3:mini)...")
+                response: ChatResponse = chat(
+                    model='phi3:mini',
+                    messages=[
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': user_message},
+                    ]
+                )
+                answer = response.message.content
+                logger.info("✓ Ollama response generated successfully")
+                return answer
                 
-                logger.info("Initializing OpenAI client...")
-                client = OpenAI(api_key=api_key)
+        except Exception as e:
+            logger.error(f"Error generating answer: {e}")
+            raise RuntimeError(f"Failed to generate answer: {str(e)}")
+
+    def run(self, prompt: str, use_openai: bool = False, k: int = 5) -> str:
+        """Run the full RAG pipeline."""
+        if not prompt or not prompt.strip():
+            raise ValueError("Prompt cannot be empty")
+        
+        logger.info(f"RAG query: '{prompt[:100]}...' (use_openai={use_openai})")
+        
+        try:
+            # Step 1: Retrieve relevant documents
+            docs = self.retrieve_events(prompt, k=k)
             
-            logger.info("Generating answer with OpenAI GPT-4...")
-            response = client.chat.completions.create(
-                model="gpt-4-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ],
-                max_tokens=1000,
-                temperature=0.7
-            )
-            answer = response.choices[0].message.content
-            logger.info("✓ OpenAI response generated successfully")
-            return answer
-        else:
-            logger.info("Generating answer with Ollama (phi3:mini)...")
-            response: ChatResponse = chat(
-                model='phi3:mini',
-                messages=[
-                    {
-                        'role': 'system',
-                        'content': system_prompt,
-                    },
-                    {
-                        'role': 'user',
-                        'content': user_message,
-                    },
-                ]
-            )
-            answer = response.message.content
-            logger.info("✓ Ollama response generated successfully")
+            # Step 2: Generate answer
+            answer = self.generate_answer(prompt, docs, use_openai)
+            
+            logger.info("✓ RAG pipeline completed successfully")
             return answer
             
-    except Exception as e:
-        logger.error(f"Error generating answer: {e}")
-        raise RuntimeError(f"Failed to generate answer: {str(e)}")
+        except Exception as e:
+            logger.error(f"RAG pipeline failed: {e}")
+            raise
 
+    def get_stats(self) -> Dict[str, Any]:
+        """Get pipeline statistics."""
+        return {
+            "total_documents": len(self.df) if self.df is not None else 0,
+            "embedding_dimensions": self.index.d if self.index is not None else 0,
+            "index_size": self.index.ntotal if self.index is not None else 0,
+            "model": self.model_name,
+            "backends": ["ollama (phi3:mini)", "openai (gpt-4-turbo)"]
+        }
 
-def rag(prompt: str, use_openai: bool = False, k: int = 5) -> str:
-    """
-    Perform Retrieval-Augmented Generation (RAG) on historical events.
-    
-    This function:
-    1. Retrieves relevant historical events using semantic search
-    2. Generates a contextual answer using either OpenAI or Ollama
-    
-    Args:
-        prompt: User's question about historical events
-        use_openai: If True, use OpenAI GPT-4; if False, use local Ollama (default: False)
-        k: Number of documents to retrieve for context (default: 5)
-    
-    Returns:
-        HTML-formatted answer based on retrieved documents
-    
-    Raises:
-        ValueError: If prompt is empty
-        RuntimeError: If retrieval or generation fails
-    
-    Example:
-        >>> answer = rag("When did World War II end?")
-        >>> print(answer)
-        <p>World War II ended in 1945...</p>
-    """
-    if not prompt or not prompt.strip():
-        raise ValueError("Prompt cannot be empty")
-    
-    logger.info(f"RAG query: '{prompt[:100]}...' (use_openai={use_openai})")
-    
-    try:
-        # Step 1: Retrieve relevant documents
-        docs = retrieve_events(prompt, k=k)
-        
-        # Step 2: Generate answer
-        answer = generate_answer(prompt, docs, use_openai)
-        
-        logger.info("✓ RAG pipeline completed successfully")
-        return answer
-        
-    except Exception as e:
-        logger.error(f"RAG pipeline failed: {e}")
-        raise
-
-
-# ===== OPTIONAL: EVALUATION FUNCTION =====
-def evaluate_retrieval(query: str, expected_keywords: list, k: int = 5) -> dict:
-    """
-    Evaluate retrieval quality for a given query.
-    
-    Args:
-        query: Search query
-        expected_keywords: List of keywords that should appear in results
-        k: Number of documents to retrieve
-    
-    Returns:
-        Dictionary with evaluation metrics
-    """
-    docs = retrieve_events(query, k=k)
-    
-    # Check how many expected keywords appear in retrieved docs
-    all_text = " ".join(docs['combined_text'].tolist()).lower()
-    found_keywords = [kw for kw in expected_keywords if kw.lower() in all_text]
-    
-    return {
-        'query': query,
-        'retrieved_docs': len(docs),
-        'expected_keywords': expected_keywords,
-        'found_keywords': found_keywords,
-        'precision': len(found_keywords) / len(expected_keywords) if expected_keywords else 0
-    }
-
-
-# ===== OPTIONAL: SAVE/LOAD INDEX =====
-def save_index(path: str = "faiss_index.bin"):
-    """Save FAISS index to disk for faster startup."""
-    faiss.write_index(INDEX, path)
-    logger.info(f"✓ FAISS index saved to {path}")
-
-
-def load_index(path: str = "faiss_index.bin") -> Optional[faiss.Index]:
-    """Load FAISS index from disk."""
-    if os.path.exists(path):
-        index = faiss.read_index(path)
-        logger.info(f"✓ FAISS index loaded from {path}")
-        return index
-    return None
-
+# Singleton instance for backward compatibility if needed, 
+# but preferably instantiated in app.py
+# rag_pipeline = RAGPipeline() 
 
 if __name__ == "__main__":
     # Test the pipeline
@@ -306,33 +259,24 @@ if __name__ == "__main__":
     print("Testing RAG Pipeline")
     print("="*60 + "\n")
     
-    test_queries = [
-        "When did World War II end?",
-        "Who invented the airplane?",
-        "What happened during the French Revolution?"
-    ]
-    
-    for query in test_queries:
-        print(f"\nQuery: {query}")
-        print("-" * 60)
+    try:
+        pipeline = RAGPipeline()
         
-        try:
-            answer = rag(query, use_openai=False)
-            print(answer[:300] + "..." if len(answer) > 300 else answer)
-            print()
-        except Exception as e:
-            print(f"Error: {e}\n")
-    
-    # Optional: Save index for faster future loads
-    # save_index()
-    
-    # Optional: Test retrieval evaluation
-    print("\n" + "="*60)
-    print("Testing Retrieval Evaluation")
-    print("="*60 + "\n")
-    
-    eval_result = evaluate_retrieval(
-        "World War II",
-        expected_keywords=["war", "1945", "hitler", "allies"]
-    )
-    print(f"Evaluation: {eval_result}")
+        test_queries = [
+            "When did World War II end?",
+            "Who invented the airplane?"
+        ]
+        
+        for query in test_queries:
+            print(f"\nQuery: {query}")
+            print("-" * 60)
+            
+            try:
+                answer = pipeline.run(query, use_openai=False)
+                print(answer[:300] + "..." if len(answer) > 300 else answer)
+                print()
+            except Exception as e:
+                print(f"Error: {e}\n")
+                
+    except Exception as e:
+        print(f"Pipeline initialization failed: {e}")
